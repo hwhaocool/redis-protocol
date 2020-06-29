@@ -267,7 +267,8 @@ public class SimpleRedisServer implements RedisServer {
     try {
       tableField = HashMap.class.getDeclaredField("table");
       tableField.setAccessible(true);
-      nextField = Class.forName("java.util.HashMap$Entry").getDeclaredField("next");
+//      nextField = Class.forName("java.util.HashMap$Entry").getDeclaredField("next");
+      nextField = Class.forName("java.util.HashMap$Node").getDeclaredField("next");
       nextField.setAccessible(true);
       mapField = HashSet.class.getDeclaredField("map");
       mapField.setAccessible(true);
