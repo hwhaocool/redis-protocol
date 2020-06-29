@@ -5,6 +5,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.netty4.Command;
 import redis.netty4.ErrorReply;
 import redis.netty4.InlineReply;
@@ -15,6 +17,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static redis.netty4.ErrorReply.NYI_REPLY;
 import static redis.netty4.StatusReply.QUIT;
@@ -25,14 +30,24 @@ import static redis.netty4.StatusReply.QUIT;
 @ChannelHandler.Sharable
 public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
 
-    private Map<BytesKey, Wrapper> methods = new HashMap<BytesKey, Wrapper>();
+    private static final Logger LOGGER = LoggerFactory.getLogger(RedisCommandHandler.class);
+
+    private static final ExecutorService EXECUTOR_SERVICE = Executors.newFixedThreadPool(10);
+
+    private Map<BytesKey, Wrapper> methods = new HashMap<>();
+
+    private int blockSeconds;
 
     interface Wrapper {
         Reply execute(Command command) throws RedisException;
     }
 
-    public RedisCommandHandler(final RedisServer rs) {
+    public RedisCommandHandler(final RedisServer rs, final int blockSeconds) {
+
+        this.blockSeconds = blockSeconds;
+
         Class<? extends RedisServer> aClass = rs.getClass();
+
         for (final Method method : aClass.getMethods()) {
             final Class<?>[] types = method.getParameterTypes();
 
@@ -41,11 +56,15 @@ public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
 
                 @Override
                 public Reply execute(Command command) throws RedisException {
-                    System.out.println("method is " + method.getName());
+
+                    LOGGER.info("current invoke method is {}", method.getName());
 
                     Object[] objects = new Object[types.length];
                     try {
                         command.toArguments(objects, types);
+
+                        LOGGER.info("current op is {} {}", method.getName(), objects);
+
                         return (Reply) method.invoke(rs, objects);
                     } catch (IllegalAccessException e) {
                         throw new RedisException("Invalid server implementation");
@@ -72,6 +91,19 @@ public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Command msg) throws Exception {
+
+        EXECUTOR_SERVICE.execute(() -> asyncRun(ctx, msg));
+    }
+
+    private void asyncRun(ChannelHandlerContext ctx, Command msg) {
+
+        // 卡一下
+        try {
+            TimeUnit.SECONDS.sleep(blockSeconds);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         byte[] name = msg.getName();
         for (int i = 0; i < name.length; i++) {
             byte b = name[i];
@@ -79,12 +111,19 @@ public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
                 name[i] = (byte) (b + LOWER_DIFF);
             }
         }
+
+        LOGGER.info("command is {}", new String(name));
+
         Wrapper wrapper = methods.get(new BytesKey(name));
-        Reply reply;
+        Reply reply = null;
         if (wrapper == null) {
             reply = new ErrorReply("unknown command '" + new String(name, Charsets.US_ASCII) + "'");
         } else {
-            reply = wrapper.execute(msg);
+            try {
+                reply = wrapper.execute(msg);
+            } catch (RedisException e) {
+                LOGGER.info("wrapper execute,", e);
+            }
         }
         if (reply == QUIT) {
             ctx.close();
@@ -99,7 +138,7 @@ public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
             if (reply == null) {
                 reply = NYI_REPLY;
             }
-            ctx.write(reply);
+            ctx.writeAndFlush(reply);
         }
     }
 }

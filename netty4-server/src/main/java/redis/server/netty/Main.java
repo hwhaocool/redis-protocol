@@ -11,16 +11,26 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Redis server
  */
 public class Main {
-    
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+
     @Argument(alias = "p")
     private static Integer port = 6379;
 
+    @Argument(alias = "b")
+    private static Integer blockSeconds = 2;
+
     public static void main(String[] args) throws InterruptedException {
+
+        LOGGER.info("starting...");
+
         try {
             Args.parse(Main.class, args);
         } catch (IllegalArgumentException e) {
@@ -29,7 +39,7 @@ public class Main {
         }
 
         // Only execute the command handler in a single thread
-        final RedisCommandHandler commandHandler = new RedisCommandHandler(new SimpleRedisServer());
+        final RedisCommandHandler commandHandler = new RedisCommandHandler(new SimpleRedisServer(), blockSeconds);
 
         // Configure the server.
         ServerBootstrap b = new ServerBootstrap();
