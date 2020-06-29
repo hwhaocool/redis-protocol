@@ -51,6 +51,11 @@ public class RedisCommandDecoder extends ReplayingDecoder<Void> {
                 arguments = 0;
             }
         } else if (in.readByte() == '*') {
+            // 客户端第一次连上来的时候，bytes == null， 会进入这个分支
+            // 发送的是  *1 $7 COMMAND
+            // * 是数组的意思，后面接着一个元素
+            // $ 是 Bulk String， 7 是指 string的长度
+
             long l = readLong(in);
             if (l > Integer.MAX_VALUE) {
                 throw new IllegalArgumentException("Java only supports arrays up to " + Integer.MAX_VALUE + " in size");
