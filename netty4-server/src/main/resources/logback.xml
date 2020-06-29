@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <property name="PATTERN"
+              value="%-12(%d{yyyy-MM-dd HH:mm:ss.SSS})  %-5level  --- [  %thread] %c line:[%L] : %msg%n" />
+
+        <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>[%d{yyyy-MM-dd HH:mm:ss}] %p [ %thread] %c{50}:%L - %m%n</pattern>
+                <charset class="java.nio.charset.Charset">UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <appender name="file"
+                  class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <File>logs/log.log</File>
+            <encoder>
+                <pattern>${PATTERN}</pattern>
+                <charset class="java.nio.charset.Charset">UTF-8</charset>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>logs/log.log.%d{yyyy-MM-dd_HH}.%i.log</fileNamePattern>
+                <!-- 每个文件最大 100M ，最多保留1小时，但是总的大小不超过200MB -->
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>1</maxHistory>
+                <totalSizeCap>200MB</totalSizeCap>
+            </rollingPolicy>
+        </appender>
+
+        <logger name="redis.server" level="DEBUG" />
+
+        <root level="DEBUG">
+            <appender-ref ref="file" />
+            <appender-ref ref="console" />
+        </root>
+
+
+
+
+</configuration>
