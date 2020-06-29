@@ -17,7 +17,7 @@ import io.netty.util.concurrent.DefaultEventExecutorGroup;
  */
 public class Main {
   @Argument(alias = "p")
-  private static Integer port = 6380;
+  private static Integer port = 6379;
 
   public static void main(String[] args) throws InterruptedException {
     try {
