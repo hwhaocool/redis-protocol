@@ -2,7 +2,7 @@
 redis-server 可以自定义 sleep x秒的 redis server
 ------
 
-首先，代码 fork 自 (spullara)[https://github.com/spullara/redis-protocol]
+首先，代码 fork 自  [spullara](https://github.com/spullara/redis-protocol)
 
 改动点基本集中在 `netty4-server` 这个工程里面
 
