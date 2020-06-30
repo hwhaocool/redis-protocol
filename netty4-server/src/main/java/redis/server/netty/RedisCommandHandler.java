@@ -15,7 +15,9 @@ import redis.util.BytesKey;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -63,9 +65,11 @@ public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
                     try {
                         command.toArguments(objects, types);
 
-                        LOGGER.info("current op is {} {}", method.getName(), objects);
+                        Reply reply = (Reply) method.invoke(rs, objects);
 
-                        return (Reply) method.invoke(rs, objects);
+                        LOGGER.info("reply is {}", reply);
+
+                        return reply;
                     } catch (IllegalAccessException e) {
                         throw new RedisException("Invalid server implementation");
                     } catch (InvocationTargetException e) {
@@ -97,13 +101,6 @@ public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
 
     private void asyncRun(ChannelHandlerContext ctx, Command msg) {
 
-        // 卡一下
-        try {
-            TimeUnit.SECONDS.sleep(blockSeconds);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
         byte[] name = msg.getName();
         for (int i = 0; i < name.length; i++) {
             byte b = name[i];
@@ -114,10 +111,17 @@ public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
 
         LOGGER.info("command is {}", new String(name));
 
+        String cName = new String(name, Charsets.US_ASCII);
+
+        // 卡一下
+        blockCommand(cName);
+
         Wrapper wrapper = methods.get(new BytesKey(name));
         Reply reply = null;
         if (wrapper == null) {
-            reply = new ErrorReply("unknown command '" + new String(name, Charsets.US_ASCII) + "'");
+            LOGGER.info("unknown command '{}'", cName);
+
+            reply = new ErrorReply("unknown command '" + cName + "'");
         } else {
             try {
                 reply = wrapper.execute(msg);
@@ -140,5 +144,36 @@ public class RedisCommandHandler extends SimpleChannelInboundHandler<Command> {
             }
             ctx.writeAndFlush(reply);
         }
+    }
+
+    private void blockCommand(String command) {
+
+        if (isSkip(command)) {
+            return;
+        }
+
+        // 卡一下
+        try {
+            TimeUnit.SECONDS.sleep(blockSeconds);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 是否跳过这个命令，不去阻塞ta
+     * @param command
+     * @author YellowTail
+     * @since 2020-06-29
+     */
+    private boolean isSkip(String command) {
+
+        List<String> list = Arrays.asList("command", "ping");
+
+        if (list.contains(command)) {
+            return true;
+        }
+
+        return false;
     }
 }
