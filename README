@@ -18,7 +18,7 @@ mvn install -DskipTests
 
 两个参数，当然了，可以用 `-h` 查看
 ```
-F:\redis-protocol>java -jar netty4-server/target/redis-server.jar -h
+java -jar redis-server.jar -h
 [2020-06-30 09:44:01] INFO [ main] redis.server.netty.Main:32 - starting...
 Usage: redis.server.netty.Main
   -port (-p) [Integer]  (6379)
@@ -32,3 +32,8 @@ Usage: redis.server.netty.Main
 
 （`ping` `command` 等 命令不会 sleep）
 
+举例：
+
+```
+java -jar redis-server.jar -p 6379 -b 10
+```
